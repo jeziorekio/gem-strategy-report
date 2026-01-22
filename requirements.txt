@@ -1,0 +1,4 @@
+yfinance
+resend
+pandas
+# Add any other required packages here
