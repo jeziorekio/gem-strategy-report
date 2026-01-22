@@ -1,33 +1,51 @@
-import smtplib
-from email.mime.text import MIMEText
+import yfinance as yf
+import numpy as np
+import requests
 from datetime import datetime
 
-class GEMStrategy:
-    def __init__(self):
-        self.notifications = []
+# Function to fetch data from yfinance
+def fetch_data(tickers):
+    data = yf.download(tickers, period="1mo", interval="1d")
+    return data['Close']
 
-    def execute_strategy(self):
-        # Code for GEM strategy execution
-        self.send_notification("GEM Strategy executed successfully.")
+# Function to calculate momentum
+def calculate_momentum(data, window=5):
+    return data.pct_change(periods=window).iloc[window:]
 
-    def send_notification(self, message):
-        self.notifications.append(message)
-        self.send_email(message)
+# Function to generate buy/sell signals
+def generate_signals(momentum):
+    signals = np.where(momentum > 0, 'Buy', 'Sell')
+    return signals
 
-    def send_email(self, message):
-        # Setup your email configuration
-        sender_email = "your_email@example.com"
-        receiver_email = "receiver_email@example.com"
-        msg = MIMEText(message)
-        msg['Subject'] = 'GEM Strategy Notification'
-        msg['From'] = sender_email
-        msg['To'] = receiver_email
+# Function to send notifications using Resend API
+def send_notification(message):
+    url = "https://api.resend.com/emails"
+    payload = {
+        "to": "recipient@example.com",
+        "subject": "GEM Strategy Alert",
+        "text": message,
+    }
+    requests.post(url, json=payload)
 
-        with smtplib.SMTP('smtp.example.com', 587) as server:
-            server.starttls()
-            server.login(sender_email, 'your_password')
-            server.sendmail(sender_email, receiver_email, msg.as_string())
+# Check if today is near the end of the month
+def check_end_of_month():
+    today = datetime.utcnow()
+    return today.day > 25  # Or use more sophisticated logic
 
-if __name__ == '__main__':
-    gem_strategy = GEMStrategy()
-    gem_strategy.execute_strategy()
+# Main logic
+def main():
+    tickers = ['AAPL', 'MSFT', 'GOOG']  # Example tickers
+    data = fetch_data(tickers)
+    momentum = calculate_momentum(data)
+    signals = generate_signals(momentum)
+
+    if check_end_of_month():
+        send_notification("Rebalancing needed at the end of the month.")
+
+    # Additional logic based on signals
+    for ticker, signal in zip(tickers, signals):
+        print(f"{ticker}: {signal}")
+        send_notification(f"{ticker}: {signal}")
+
+if __name__ == "__main__":
+    main()
